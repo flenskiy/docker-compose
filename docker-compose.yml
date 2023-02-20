@@ -1,0 +1,63 @@
+version: "3.9"
+services:
+  backend:
+    container_name: backend
+    build: ./app
+    volumes:
+      - static:/usr/src/app/static
+    environment:
+      - ALLOWED_HOST=192.168.111.135      
+    expose:
+      - 8000
+    depends_on:
+      - db
+    networks:
+      - app_network
+    entrypoint: ./entrypoint.sh
+
+  db:
+    container_name: postgres
+    image: postgres:13.0-alpine
+    environment:
+      POSTGRES_DB: "app_db"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - data_db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - app_network
+
+  nginx:
+    container_name: nginx
+    build: ./web-server
+    volumes:
+      - static:/code/static
+    ports:
+      - 80:80
+    depends_on:
+      - backend
+    networks:
+      - app_network
+
+volumes:
+  data_db:
+  static:
+
+networks:
+  app_network:
+    driver: bridge
